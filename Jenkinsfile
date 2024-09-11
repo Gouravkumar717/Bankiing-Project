@@ -13,18 +13,21 @@ pipeline {
                 sh "mvn -Dmaven.test.failure.ignore=true clean package"
             }
         }
+        
         stage ("Generate Test Reports") {
             steps {
                 // Ensure the reportDir is correctly set to the path where test reports are generated
                 publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '/var/lib/jenkins/workspace/Banking-Finance-project/target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
             }
         }
+
         stage ("Create Docker Image") {
             steps {
                 // Correct Docker build command
                 sh "docker build -t gourav787/banking-project:1.0 ."
             }
         }
+
         stage ('Docker-login') {
             steps {
                 // Login to Docker using credentials stored in Jenkins
@@ -33,17 +36,36 @@ pipeline {
                 }
             }
         }
+
         stage ("Docker-push") {
             steps {
                 // Push Docker image to DockerHub
                 sh "docker push gourav787/banking-project:1.0"
             }
         }
-        stage withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AwsAccessKey', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            dir ("terraform-files") {
-                sh 'sudo chmod 600 mykeyohio.pem'
-                sh 'terraform init'
-                sh 'terraform validate'
-                sh 'terraform apply --auto-approve'
+
+        stage("Deploy with Terraform") {
+            steps {
+                // Use AWS credentials to deploy resources with Terraform
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', 
+                    credentialsId: 'AwsAccessKey']]) {
+                    dir("terraform-files") {
+                        sh 'sudo chmod 600 mykeyohio.pem'
+                        sh 'terraform init'
+                        sh 'terraform validate'
+                        sh 'terraform apply --auto-approve'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Clean up workspace after the build
+            cleanWs()
+        }
     }
 }
