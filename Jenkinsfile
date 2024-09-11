@@ -39,5 +39,11 @@ pipeline {
                 sh "docker push gourav787/banking-project:1.0"
             }
         }
+        stage withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AwsAccessKey', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            dir ("terraform-files") {
+                sh 'sudo chmod 600 mykeyohio.pem'
+                sh 'terraform init'
+                sh 'terraform validate'
+                sh 'terraform apply --auto-approve'
     }
 }
